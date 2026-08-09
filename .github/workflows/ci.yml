@@ -1,0 +1,46 @@
+name: C++ Visual Studio CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build solution
+        run: msbuild Sample-Test1.slnx /p:Configuration=Release /p:Platform=x64
+
+      - name: Run Google Tests
+        shell: pwsh
+        run: |
+          $testExe = Get-ChildItem -Path . -Recurse -Filter "*.exe" |
+            Where-Object { $_.FullName -like "*x64*Release*" } |
+            Select-Object -First 1
+
+          if ($null -eq $testExe) {
+            Write-Error "Test executable not found"
+            exit 1
+          }
+
+          Write-Host "Running tests from $($testExe.FullName)"
+          & $testExe.FullName
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sorting-tests-release
+          path: |
+            **/x64/Release/*.exe
